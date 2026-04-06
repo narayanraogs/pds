@@ -165,16 +165,31 @@ class TMCell extends ConsumerWidget {
                 child: Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        param.mnemonic,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w900,
-                          fontFamily: 'monospace',
-                          color: Theme.of(context).primaryColor,
-                          letterSpacing: 0.8,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                      child: Row(
+                        children: [
+                          Text(
+                            param.mnemonic,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                              fontFamily: 'monospace',
+                              color: Theme.of(context).primaryColor,
+                              letterSpacing: 0.8,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (param.units.isNotEmpty) ...[
+                            const SizedBox(width: 6),
+                            Text(
+                              '[${param.units}]',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).primaryColor.withAlpha(120),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                     Icon(
@@ -195,14 +210,12 @@ class TMCell extends ConsumerWidget {
                       _ValueBox(
                         label: 'TM1',
                         value: param.tm1Value,
-                        units: param.units,
                         status: param.status1,
                       ),
                       const SizedBox(width: 10),
                       _ValueBox(
                         label: 'TM2',
                         value: param.tm2Value,
-                        units: param.units,
                         status: param.status2,
                       ),
                     ],
@@ -238,13 +251,11 @@ class TMCell extends ConsumerWidget {
 class _ValueBox extends StatelessWidget {
   final String label;
   final String value;
-  final String units;
   final TMStatus status;
 
   const _ValueBox({
     required this.label,
     required this.value,
-    required this.units,
     required this.status,
   });
 
@@ -284,33 +295,15 @@ class _ValueBox extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 2),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Text(
-                  value.isEmpty ? "---" : value,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.w900,
-                    color: isDark ? Colors.white : const Color(0xFF1F2937),
-                    letterSpacing: -1,
-                  ),
-                ),
-                if (units.isNotEmpty) ...[
-                  const SizedBox(width: 4),
-                  Text(
-                    units,
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w800,
-                      color: isDark ? Colors.white54 : Colors.black38,
-                    ),
-                  ),
-                ],
-              ],
+            Text(
+              value.isEmpty ? "---" : value,
+              style: TextStyle(
+                fontSize: 18,
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w900,
+                color: isDark ? Colors.white : const Color(0xFF1F2937),
+                letterSpacing: -1,
+              ),
             ),
           ],
         ),

@@ -19,70 +19,70 @@ class SatelliteTMApp extends ConsumerWidget {
     final themeMode = ref.watch(themeProvider);
 
     return MaterialApp(
-      title: 'Satellite TM Page system',
+      title: 'PDS Pro — Ground Station Control',
       debugShowCheckedModeBanner: false,
       themeMode: themeMode,
-      
-      // LIGHT THEME (PREMIUM GS DESIGN)
+
+      // ── LIGHT THEME ──────────────────────────────────────────────────────────
       theme: ThemeData(
         brightness: Brightness.light,
         fontFamily: 'Roboto',
-        primaryColor: const Color(0xFF2E66E7), // Modern Electric Blue
-        scaffoldBackgroundColor: const Color(0xFFF9FAFB), // Clean neutral
+        primaryColor: const Color(0xFF2563EB),
+        scaffoldBackgroundColor: const Color(0xFFF1F5F9),
         cardColor: Colors.white,
-        dividerColor: const Color(0xFFE5E7EB),
+        dividerColor: const Color(0xFFE2E8F0),
         textTheme: const TextTheme(
-           bodyLarge: TextStyle(letterSpacing: -0.2, color: Color(0xFF111827), fontWeight: FontWeight.w500),
-           bodyMedium: TextStyle(letterSpacing: -0.2, color: Color(0xFF374151)),
-           titleLarge: TextStyle(letterSpacing: -0.5, color: Color(0xFF111827), fontWeight: FontWeight.w900),
+          bodyLarge: TextStyle(letterSpacing: -0.2, color: Color(0xFF0F172A), fontWeight: FontWeight.w500),
+          bodyMedium: TextStyle(letterSpacing: -0.2, color: Color(0xFF334155)),
+          titleLarge: TextStyle(letterSpacing: -0.6, color: Color(0xFF0F172A), fontWeight: FontWeight.w800),
         ),
         appBarTheme: const AppBarTheme(
           elevation: 0,
           centerTitle: false,
           backgroundColor: Colors.white,
-          foregroundColor: Color(0xFF111827),
+          foregroundColor: Color(0xFF0F172A),
           surfaceTintColor: Colors.transparent,
         ),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2E66E7),
+          seedColor: const Color(0xFF2563EB),
           brightness: Brightness.light,
-          primary: const Color(0xFF2E66E7),
-          secondary: const Color(0xFF10B981), // Success EMERALD
+          primary: const Color(0xFF2563EB),
+          secondary: const Color(0xFF06B6D4),
           surface: Colors.white,
         ),
         useMaterial3: true,
       ),
 
-      // DARK THEME (HIGH-END DARK GS DESIGN)
+      // ── DARK THEME ───────────────────────────────────────────────────────────
       darkTheme: ThemeData(
         brightness: Brightness.dark,
-        fontFamily: 'Roboto',
-        primaryColor: const Color(0xFF3B82F6),
-        scaffoldBackgroundColor: const Color(0xFF0F1115), // Deep Charcoal/Navy
-        cardColor: const Color(0xFF1E2128),
-        dividerColor: const Color(0xFF2D333B),
+        fontFamily: 'Inter',
+        primaryColor: const Color(0xFF38BDF8),      // Sky-400
+        scaffoldBackgroundColor: const Color(0xFF060A12),  // Near-black space
+        cardColor: const Color(0xFF0D1321),
+        dividerColor: const Color(0xFF1E293B),
         textTheme: const TextTheme(
-           bodyLarge: TextStyle(letterSpacing: -0.2, color: Color(0xFFF3F4F6)),
-           bodyMedium: TextStyle(letterSpacing: -0.2, color: Color(0xFFD1D5DB)),
-           titleLarge: TextStyle(letterSpacing: -0.5, color: Color(0xFFF9FAFB), fontWeight: FontWeight.w900),
+          bodyLarge: TextStyle(letterSpacing: -0.2, color: Color(0xFFE2E8F0)),
+          bodyMedium: TextStyle(letterSpacing: -0.2, color: Color(0xFF94A3B8)),
+          titleLarge: TextStyle(letterSpacing: -0.6, color: Color(0xFFF8FAFC), fontWeight: FontWeight.w800),
         ),
         appBarTheme: const AppBarTheme(
           elevation: 0,
           centerTitle: false,
-          backgroundColor: Color(0xFF1E2128),
-          foregroundColor: Color(0xFFF9FAFB),
+          backgroundColor: Color(0xFF0D1321),
+          foregroundColor: Color(0xFFF8FAFC),
           surfaceTintColor: Colors.transparent,
         ),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF3B82F6),
+          seedColor: const Color(0xFF38BDF8),
           brightness: Brightness.dark,
-          primary: const Color(0xFF3B82F6),
-          secondary: const Color(0xFF10B981),
-          surface: const Color(0xFF1E2128),
+          primary: const Color(0xFF38BDF8),
+          secondary: const Color(0xFF22D3EE),
+          surface: const Color(0xFF0D1321),
         ),
         useMaterial3: true,
       ),
-      
+
       home: const MainScreen(),
     );
   }

@@ -1,0 +1,27 @@
+# IDE-specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Go / Server
+server/dist/
+pds_server
+pds_server.exe
+go.sum
+
+# Flutter / Client
+client/.dart_tool/
+client/.packages
+client/.pub-cache/
+client/.pub/
+client/build/
+client/web/last_build_info
+client/.flutter-plugins
+client/.flutter-plugins-dependencies
+
+# Project Data & Configuration
+config.json
+pds.db
+*.log

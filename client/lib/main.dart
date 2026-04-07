@@ -28,7 +28,7 @@ class SatelliteTMApp extends ConsumerWidget {
         brightness: Brightness.light,
         fontFamily: 'Roboto',
         primaryColor: const Color(0xFF2563EB),
-        scaffoldBackgroundColor: const Color(0xFFF1F5F9),
+        scaffoldBackgroundColor: const Color(0xFFF8FAFC),
         cardColor: Colors.white,
         dividerColor: const Color(0xFFE2E8F0),
         textTheme: const TextTheme(

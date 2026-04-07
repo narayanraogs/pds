@@ -1,24 +1,40 @@
 package tm
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"pds/config"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
+
+const (
+	pingPeriod = 5 * time.Second
+	pongWait   = 10 * time.Second
+)
+
+type SafeParameter struct {
+	mu  sync.RWMutex
+	val ParameterValue
+}
 
 var (
 	paramCache         map[string]parameter
 	parameterMnemonics []string
 	paramCacheOnce     sync.Once
 	paramCacheErr      error
-	paramValueMap      map[string]*ParameterValue
+	paramValueMap      map[string]*SafeParameter
+	paramMu            sync.RWMutex
 )
 
 func getParamCache(conf *config.Config) (map[string]parameter, error) {
@@ -29,40 +45,64 @@ func getParamCache(conf *config.Config) (map[string]parameter, error) {
 }
 
 func FetchFullParamsFromServer(cfg *config.Config) (map[string]parameter, error) {
+	cachePath := config.ExpandPath(cfg.MnemonicCachePath)
+	
+	// Ensure directory exists
+	dir := filepath.Dir(cachePath)
+	_ = os.MkdirAll(dir, 0755)
+
 	u := "http://" + cfg.TMServer.IP + fmt.Sprintf(":%d", cfg.TMServer.PortNo) + "/pid_info?sc_id=" + cfg.SatelliteName
 	resp, err := http.Get(u)
-	if err != nil {
-		return nil, err
+	
+	var data []byte
+	if err == nil {
+		defer resp.Body.Close()
+		if resp.StatusCode == http.StatusOK {
+			data, err = io.ReadAll(resp.Body)
+			if err == nil {
+				// Success - save to cache
+				_ = os.WriteFile(cachePath, data, 0644)
+				log.Printf("[TM] Mnemonic list updated and cached to %s", cachePath)
+			}
+		} else {
+			err = fmt.Errorf("bad status: %s", resp.Status)
+		}
 	}
-	defer resp.Body.Close()
-	parameterMnemonics = make([]string, 0)
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("bad status: %s", resp.Status)
-	}
-
-	body, err := io.ReadAll(resp.Body)
+	// If fetch failed, try to load from cache
 	if err != nil {
-		return nil, err
+		log.Printf("[WARN] Failed to fetch mnemonics from server: %v. Attempting to load from cache...", err)
+		data, err = os.ReadFile(cachePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch from server and no cache found: %v", err)
+		}
+		log.Printf("[TM] Loaded mnemonics from local cache: %s", cachePath)
 	}
 
 	var params []parameter
-	if err := json.Unmarshal(body, &params); err != nil {
+	if err := json.Unmarshal(data, &params); err != nil {
 		return nil, err
 	}
 
-	paramCache := make(map[string]parameter)
-	paramValueMap = make(map[string]*ParameterValue)
+	paramMu.Lock()
+	defer paramMu.Unlock()
+
+	paramCache = make(map[string]parameter)
+	paramValueMap = make(map[string]*SafeParameter)
+	parameterMnemonics = make([]string, 0)
+
 	for _, p := range params {
 		paramCache[p.PID] = p
-		paramValueMap[p.PID] = &ParameterValue{
-			Mnemonic:   p.Mnemonic,
-			Units:      p.Units,
-			TM1Value:   "",
-			TM2Value:   "",
-			UpperLimit: p.UpperLimit,
-			LowerLimit: p.LowerLimit,
-			Tolerance:  p.Tolerance,
+		paramValueMap[p.PID] = &SafeParameter{
+			val: ParameterValue{
+				Mnemonic:   p.Mnemonic,
+				Units:      p.Units,
+				TM1Value:   "",
+				TM2Value:   "",
+				UpperLimit: p.UpperLimit,
+				LowerLimit: p.LowerLimit,
+				Tolerance:  p.Tolerance,
+			},
 		}
 		parameterMnemonics = append(parameterMnemonics, p.Mnemonic)
 	}
@@ -70,32 +110,65 @@ func FetchFullParamsFromServer(cfg *config.Config) (map[string]parameter, error)
 }
 
 func subscribeToAllMnemonics(conf *config.Config, stream string, output chan<- Parameter) {
-	_, err := getParamCache(conf)
-	if err != nil {
-		var param Parameter
-		param.Error = "Param Cache Not loaded"
-		param.OK = false
-		param.Param = "ALL"
-		output <- param
-		close(output)
-	}
+	for {
+		_, err := getParamCache(conf)
+		if err != nil {
+			log.Printf("[TM-%s] Cache not available, retrying in 5s...", stream)
+			time.Sleep(5 * time.Second)
+			continue
+		}
 
-	addr := conf.TMServer.IP + ":" + strconv.Itoa(conf.TMServer.PortNo)
-	u := url.URL{Scheme: "ws", Host: addr, Path: conf.TMServer.Path}
-	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
-	if err != nil {
+		addr := conf.TMServer.IP + ":" + strconv.Itoa(conf.TMServer.PortNo)
+		u := url.URL{Scheme: "ws", Host: addr, Path: conf.TMServer.Path}
+
+		log.Printf("[TM-%s] Attempting connection to %s...", stream, u.String())
+		conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+		if err != nil {
+			SetConnected(false)
+			log.Printf("[TM-%s] Connection failed: %v. Retrying in 5s...", stream, err)
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		SetConnected(true)
+		runSubscription(conf, stream, conn, output)
+
+		// If runSubscription returns, it means the connection was lost
 		SetConnected(false)
-		var param Parameter
-		param.Error = "TM server unavailable: " + err.Error()
-		param.OK = false
-		param.Param = "ALL"
-		output <- param
-		close(output)
-		return
+		log.Printf("[TM-%s] Connection lost. Retrying in 5s...", stream)
+		time.Sleep(5 * time.Second)
 	}
-	SetConnected(true)
+}
+
+func runSubscription(conf *config.Config, stream string, conn *websocket.Conn, output chan<- Parameter) {
 	defer conn.Close()
-	defer SetConnected(false)
+
+	// Setup Heartbeat
+	conn.SetReadDeadline(time.Now().Add(pongWait))
+	conn.SetPongHandler(func(string) error {
+		conn.SetReadDeadline(time.Now().Add(pongWait))
+		MarkHeartbeatReceived()
+		return nil
+	})
+
+	// Ping Loop
+	pingCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		ticker := time.NewTicker(pingPeriod)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+					return
+				}
+			case <-pingCtx.Done():
+				return
+			}
+		}
+	}()
 
 	req := request{
 		UserID:   "PDS",
@@ -110,25 +183,14 @@ func subscribeToAllMnemonics(conf *config.Config, stream string, output chan<- P
 	}
 
 	if err := conn.WriteJSON(req); err != nil {
-		var param Parameter
-		param.Error = "Failed to send subscription request: " + err.Error()
-		param.OK = false
-		param.Param = "ALL"
-		output <- param
-		close(output)
+		log.Printf("[TM-%s] Subscription request failed: %v", stream, err)
 		return
 	}
 
 	for {
 		var resp response
 		if err := conn.ReadJSON(&resp); err != nil {
-			SetConnected(false)
-			var param Parameter
-			param.Error = "Connection read error: " + err.Error()
-			param.OK = false
-			param.Param = "ALL"
-			output <- param
-			close(output)
+			log.Printf("[TM-%s] Read error: %v", stream, err)
 			return
 		}
 
@@ -136,11 +198,40 @@ func subscribeToAllMnemonics(conf *config.Config, stream string, output chan<- P
 		for _, pInfo := range resp.MsgPayload.ParametersInfo {
 			output <- pInfo
 		}
-
 	}
-
 }
 
-func GetAllParameterInfo() map[string]*ParameterValue {
-	return paramValueMap
+func GetAllParameterInfo() map[string]ParameterValue {
+	paramMu.RLock()
+	defer paramMu.RUnlock()
+
+	result := make(map[string]ParameterValue, len(paramValueMap))
+	for k, sp := range paramValueMap {
+		sp.mu.RLock()
+		result[k] = sp.val
+		sp.mu.RUnlock()
+	}
+	return result
+}
+
+func UpdateParamValue(pid string, tm1Val string, tm2Val string, isTM1 bool) (*ParameterValue, bool) {
+	paramMu.RLock()
+	sp, ok := paramValueMap[pid]
+	paramMu.RUnlock()
+
+	if !ok {
+		return nil, false
+	}
+
+	sp.mu.Lock()
+	defer sp.mu.Unlock()
+
+	if isTM1 {
+		sp.val.TM1Value = tm1Val
+	} else {
+		sp.val.TM2Value = tm2Val
+	}
+
+	copied := sp.val
+	return &copied, true
 }

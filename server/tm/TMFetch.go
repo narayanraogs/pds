@@ -14,21 +14,13 @@ func GetData(conf *config.Config, updatedParameter chan<- ParameterValue) {
 	for {
 		select {
 		case p := <-tm1ChanMap:
-			param, ok := paramValueMap[p.Param]
-			if !ok {
-				continue
+			if param, ok := UpdateParamValue(p.Param, p.StringV, "", true); ok {
+				updatedParameter <- *param
 			}
-			param.TM1Value = p.StringV
-			paramValueMap[p.Param] = param
-			updatedParameter <- *param
 		case p := <-tm2ChanMap:
-			param, ok := paramValueMap[p.Param]
-			if !ok {
-				continue
+			if param, ok := UpdateParamValue(p.Param, "", p.StringV, false); ok {
+				updatedParameter <- *param
 			}
-			param.TM2Value = p.StringV
-			paramValueMap[p.Param] = param
-			updatedParameter <- *param
 		}
 	}
 }

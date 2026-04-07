@@ -62,7 +62,7 @@ class PagesNotifier extends AsyncNotifier<List<PageLayout>> {
           return PageLayout(
             id: item['id'],
             name: item['name'],
-            grid: gridData.map((row) => (row as List<dynamic>).map((cell) => CellData.fromJson(cell)).toList()).toList(),
+            columns: gridData.map((col) => (col as List<dynamic>).map((cell) => CellData.fromJson(cell)).toList()).toList(),
           );
         }).toList();
       }
@@ -75,7 +75,7 @@ class PagesNotifier extends AsyncNotifier<List<PageLayout>> {
       PageLayout(
         id: const Uuid().v4(),
         name: 'Overview Dashboard',
-        grid: [[CellData.empty()]],
+        columns: [[CellData.empty()]],
       )
     ];
   }
@@ -84,7 +84,7 @@ class PagesNotifier extends AsyncNotifier<List<PageLayout>> {
     final newPage = PageLayout(
       id: const Uuid().v4(),
       name: name,
-      grid: [[CellData.empty()]],
+      columns: [[CellData.empty()]],
     );
     
     final previousState = await future;
@@ -118,8 +118,8 @@ class PagesNotifier extends AsyncNotifier<List<PageLayout>> {
 
   Future<void> _syncToServer(PageLayout page) async {
     try {
-      // Package the complex grid list as a JSON string for the TEXT column in SQL
-      final gridJson = jsonEncode(page.grid.map((row) => row.map((cell) => cell.toJson()).toList()).toList());
+      // Package the complex columns list as a JSON string for the TEXT column in SQL
+      final gridJson = jsonEncode(page.columns.map((col) => col.map((cell) => cell.toJson()).toList()).toList());
       
       await http.post(
         Uri.parse(_baseUrl),

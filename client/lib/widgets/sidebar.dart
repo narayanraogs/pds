@@ -98,6 +98,9 @@ class Sidebar extends ConsumerWidget {
                       onTap: () {
                         ref.read(currentPageIndexProvider.notifier).value = realIndex;
                       },
+                      onDelete: allPages.length > 1
+                          ? () => _showDeleteConfirm(context, ref, page.id, page.name)
+                          : null,
                     );
                   },
                 );
@@ -124,6 +127,65 @@ class Sidebar extends ConsumerWidget {
             child: _AddDashboardBtn(isDark: isDark, primary: primary, ref: ref),
           ),
           SizedBox(height: MediaQuery.of(context).padding.bottom + 8),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteConfirm(BuildContext context, WidgetRef ref, String id, String name) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF0D1321) : Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Delete Display',
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            fontSize: 17,
+            color: isDark ? Colors.white : const Color(0xFF0F172A),
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to delete "$name"? This action cannot be undone.',
+          style: TextStyle(
+            fontSize: 13,
+            color: isDark ? Colors.white70 : Colors.black87,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: isDark ? Colors.white38 : Colors.black38, fontWeight: FontWeight.w600),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () {
+              // If we are deleting the current page, switch to another first
+              final currentIndex = ref.read(currentPageIndexProvider);
+              final pagesAsync = ref.read(pagesProvider);
+              final allPages = pagesAsync.value ?? [];
+              final pageIndex = allPages.indexWhere((p) => p.id == id);
+              
+              if (currentIndex == pageIndex) {
+                 ref.read(currentPageIndexProvider.notifier).value = 0;
+              }
+
+              ref.read(pagesProvider.notifier).deletePage(id);
+              Navigator.pop(context);
+            },
+            child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.w700)),
+          ),
         ],
       ),
     );
@@ -248,6 +310,7 @@ class _PageTile extends StatefulWidget {
   final bool isDark;
   final Color primary;
   final VoidCallback onTap;
+  final VoidCallback? onDelete;
 
   const _PageTile({
     required this.name,
@@ -255,6 +318,7 @@ class _PageTile extends StatefulWidget {
     required this.isDark,
     required this.primary,
     required this.onTap,
+    this.onDelete,
   });
 
   @override
@@ -317,7 +381,7 @@ class _PageTileState extends State<_PageTile> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              if (widget.isSelected)
+              if (widget.isSelected && !_hovered)
                 Container(
                   width: 5,
                   height: 5,
@@ -331,6 +395,21 @@ class _PageTileState extends State<_PageTile> {
                         spreadRadius: 1,
                       ),
                     ],
+                  ),
+                ),
+              if (widget.onDelete != null && _hovered)
+                GestureDetector(
+                  onTap: () {
+                    // Prevent tile selection when clicking delete
+                    widget.onDelete!();
+                  },
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: Icon(
+                      Icons.delete_outline_rounded,
+                      size: 16,
+                      color: widget.isSelected ? widget.primary : (widget.isDark ? Colors.white38 : Colors.black38),
+                    ),
                   ),
                 ),
             ],

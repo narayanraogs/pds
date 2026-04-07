@@ -22,6 +22,6 @@ client/.flutter-plugins
 client/.flutter-plugins-dependencies
 
 # Project Data & Configuration
-config.json
+# config.json (Removed from ignore to track fixed ribbon configuration)
 pds.db
 *.log

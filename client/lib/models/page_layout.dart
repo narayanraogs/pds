@@ -46,77 +46,133 @@ class CellData {
 class PageLayout {
   final String id;
   final String name;
-  final List<List<CellData>> grid;
+  final List<List<CellData>> columns;
 
   PageLayout({
     required this.id,
     required this.name,
-    required this.grid,
+    required this.columns,
   });
 
-  // Grow/Shrink operations
-  PageLayout addRow({int? index}) {
-    final newRow = List.generate(
-      grid.isEmpty ? 1 : grid[0].length, 
-      (_) => CellData.empty()
-    );
-    final newGrid = List<List<CellData>>.from(grid);
-    if (index != null && index >= 0 && index < newGrid.length) {
-      newGrid.insert(index, newRow);
-    } else {
-      newGrid.add(newRow);
-    }
-    return copyWith(grid: newGrid);
-  }
-
+  // Adding a new column entirely
   PageLayout addColumn({int? index}) {
-    final newGrid = List<List<CellData>>.from(grid);
-    for (int i = 0; i < newGrid.length; i++) {
-        final newRow = List<CellData>.from(newGrid[i]);
-        if (index != null && index >= 0 && index < newRow.length) {
-          newRow.insert(index, CellData.empty());
-        } else {
-          newRow.add(CellData.empty());
-        }
-        newGrid[i] = newRow;
+    final newColumns = List<List<CellData>>.from(columns.map((c) => List<CellData>.from(c)));
+    final newCol = [CellData.empty()];
+    if (index != null && index >= 0 && index <= newColumns.length) {
+      newColumns.insert(index, newCol);
+    } else {
+      newColumns.add(newCol);
     }
-    return copyWith(grid: newGrid);
+    return copyWith(columns: newColumns);
   }
 
-  PageLayout deleteRow(int index) {
-    if (grid.length <= 1) return this;
-    final newGrid = List<List<CellData>>.from(grid);
-    newGrid.removeAt(index);
-    return copyWith(grid: newGrid);
+  // Adding a cell above/below (up/down) in a specific column
+  PageLayout addCell(int colIndex, {int? rowIndex}) {
+    if (colIndex < 0 || colIndex >= columns.length) return this;
+    
+    final newColumns = List<List<CellData>>.from(columns.map((c) => List<CellData>.from(c)));
+    final newCol = newColumns[colIndex];
+    
+    if (rowIndex != null && rowIndex >= 0 && rowIndex <= newCol.length) {
+      newCol.insert(rowIndex, CellData.empty());
+    } else {
+      newCol.add(CellData.empty());
+    }
+    
+    return copyWith(columns: newColumns);
   }
 
   PageLayout deleteColumn(int index) {
-    if (grid.isEmpty || grid[0].length <= 1) return this;
-    final newGrid = List<List<CellData>>.from(grid);
-    for (int i = 0; i < newGrid.length; i++) {
-        final newRow = List<CellData>.from(newGrid[i]);
-        newRow.removeAt(index);
-        newGrid[i] = newRow;
-    }
-    return copyWith(grid: newGrid);
+    if (columns.length <= 1) return this;
+    final newColumns = List<List<CellData>>.from(columns.map((c) => List<CellData>.from(c)));
+    newColumns.removeAt(index);
+    return copyWith(columns: newColumns);
   }
 
-  PageLayout updateCell(int row, int col, CellData newData) {
-    final newGrid = List<List<CellData>>.from(grid);
-    final newRow = List<CellData>.from(newGrid[row]);
-    newRow[col] = newData;
-    newGrid[row] = newRow;
-    return copyWith(grid: newGrid);
+  PageLayout deleteCell(int colIndex, int rowIndex) {
+    if (colIndex < 0 || colIndex >= columns.length) return this;
+    final newCol = columns[colIndex];
+    
+    if (newCol.length <= 1) {
+      return deleteColumn(colIndex);
+    }
+    
+    final newColumns = List<List<CellData>>.from(columns.map((c) => List<CellData>.from(c)));
+    newColumns[colIndex].removeAt(rowIndex);
+    return copyWith(columns: newColumns);
+  }
+
+  PageLayout updateCell(int col, int row, CellData newData) {
+    final newColumns = List<List<CellData>>.from(columns.map((c) => List<CellData>.from(c)));
+    newColumns[col][row] = newData;
+    return copyWith(columns: newColumns);
+  }
+
+  PageLayout moveCell(int fromCol, int fromRow, int toCol, int toRow) {
+    if (fromCol < 0 || fromCol >= columns.length) return this;
+    if (fromRow < 0 || fromRow >= columns[fromCol].length) return this;
+
+    final newColumns = List<List<CellData>>.from(columns.map((c) => List<CellData>.from(c)));
+    final cell = newColumns[fromCol].removeAt(fromRow);
+
+    int dropCol = toCol;
+    int dropRow = toRow;
+
+    if (fromCol == dropCol && fromRow < dropRow) {
+      dropRow -= 1;
+    }
+
+    if (newColumns[fromCol].isEmpty) {
+      newColumns.removeAt(fromCol);
+      if (fromCol < dropCol) {
+        dropCol -= 1;
+      }
+    }
+
+    if (dropCol < 0) dropCol = 0;
+    if (dropCol >= newColumns.length) {
+      newColumns.add([cell]);
+      return copyWith(columns: newColumns);
+    }
+
+    if (dropRow < 0) dropRow = 0;
+    if (dropRow > newColumns[dropCol].length) dropRow = newColumns[dropCol].length;
+
+    newColumns[dropCol].insert(dropRow, cell);
+    return copyWith(columns: newColumns);
+  }
+
+  PageLayout moveCellToNewColumn(int fromCol, int fromRow, int newColIndex) {
+    if (fromCol < 0 || fromCol >= columns.length) return this;
+    if (fromRow < 0 || fromRow >= columns[fromCol].length) return this;
+
+    final newColumns = List<List<CellData>>.from(columns.map((c) => List<CellData>.from(c)));
+    final cell = newColumns[fromCol].removeAt(fromRow);
+
+    int dropCol = newColIndex;
+
+    if (newColumns[fromCol].isEmpty) {
+      newColumns.removeAt(fromCol);
+      if (fromCol < dropCol) {
+        dropCol -= 1;
+      }
+    }
+
+    if (dropCol < 0) dropCol = 0;
+    if (dropCol > newColumns.length) dropCol = newColumns.length;
+
+    newColumns.insert(dropCol, [cell]);
+    return copyWith(columns: newColumns);
   }
 
   PageLayout copyWith({
     String? name,
-    List<List<CellData>>? grid,
+    List<List<CellData>>? columns,
   }) {
     return PageLayout(
       id: id,
       name: name ?? this.name,
-      grid: grid ?? this.grid,
+      columns: columns ?? this.columns,
     );
   }
 }

@@ -1,0 +1,17 @@
+{
+	"SatelliteName": "EOS-10",
+	"PortNo": 8888,
+	"DBPath": "~/pds/pds.db",
+	"MnemonicCachePath": "~/pds/mnemonics.json",
+	"RibbonMnemonics": [
+		"Frame_ID",
+		"EXE_CMD_CNTR_SEL_LSB",
+		"SYS_SEL"
+	],
+	"TMServer": {
+		"IP": "172.20.10.1",
+		"PortNo": 9000,
+		"Path": "ws/ntm",
+		"Timeout": 32
+	}
+}

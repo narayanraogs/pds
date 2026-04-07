@@ -102,7 +102,7 @@ class TMCell extends ConsumerWidget {
           final currentPage = ref.read(currentPageProvider);
           if (currentPage != null) {
             ref.read(pagesProvider.notifier).updatePage(
-                  currentPage.updateCell(row, col, cell.copyWith(type: type, content: content)));
+                  currentPage.updateCell(col, row, cell.copyWith(type: type, content: content)));
           }
         },
       ),

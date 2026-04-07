@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/user"
 	"path/filepath"
-	"strings"
+	"pds/config"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -18,14 +17,18 @@ type Page struct {
 	Grid string `json:"grid_json"` // JSON encoded grid list of lists
 }
 
+type DerivedParameter struct {
+	ID         string `json:"id"`
+	Mnemonic   string `json:"mnemonic"`
+	Unit       string `json:"unit"`
+	Expression string `json:"expression"`
+}
+
 var DB *sql.DB
 
 func InitializeDB(dbPath string) error {
-	// 1. Expand ~ if present
-	if strings.HasPrefix(dbPath, "~/") {
-		usr, _ := user.Current()
-		dbPath = filepath.Join(usr.HomeDir, dbPath[2:])
-	}
+	// 1. Expand paths
+	dbPath = config.ExpandPath(dbPath)
 
 	// 2. Ensure directory exists
 	dir := filepath.Dir(dbPath)
@@ -49,6 +52,18 @@ func InitializeDB(dbPath string) error {
 	);`
 
 	if _, err := DB.Exec(query); err != nil {
+		return err
+	}
+
+	queryDerived := `
+	CREATE TABLE IF NOT EXISTS derived_parameters (
+		id TEXT PRIMARY KEY,
+		mnemonic TEXT UNIQUE,
+		unit TEXT,
+		expression TEXT
+	);`
+
+	if _, err := DB.Exec(queryDerived); err != nil {
 		return err
 	}
 
@@ -85,5 +100,37 @@ func SavePage(p Page) error {
 
 func DeletePage(id string) error {
 	_, err := DB.Exec("DELETE FROM pages WHERE id = ?", id)
+	return err
+}
+
+func GetAllDerivedParameters() ([]DerivedParameter, error) {
+	rows, err := DB.Query("SELECT id, mnemonic, unit, expression FROM derived_parameters")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var dps []DerivedParameter
+	for rows.Next() {
+		var dp DerivedParameter
+		if err := rows.Scan(&dp.ID, &dp.Mnemonic, &dp.Unit, &dp.Expression); err != nil {
+			continue
+		}
+		dps = append(dps, dp)
+	}
+	return dps, nil
+}
+
+func SaveDerivedParameter(dp DerivedParameter) error {
+	query := `INSERT INTO derived_parameters (id, mnemonic, unit, expression) 
+	          VALUES (?, ?, ?, ?) 
+	          ON CONFLICT(id) DO UPDATE SET mnemonic=excluded.mnemonic, unit=excluded.unit, expression=excluded.expression`
+
+	_, err := DB.Exec(query, dp.ID, dp.Mnemonic, dp.Unit, dp.Expression)
+	return err
+}
+
+func DeleteDerivedParameter(id string) error {
+	_, err := DB.Exec("DELETE FROM derived_parameters WHERE id = ?", id)
 	return err
 }

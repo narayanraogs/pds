@@ -15,10 +15,19 @@ final tmRegistryProvider = NotifierProvider<TMRegistryNotifier, Map<String, TMPa
 });
 
 // STATUS MODEL
+enum TMConnectionState { disconnected, connected, live }
+
 class SystemStatus {
   final String satellite;
   final bool connected;
-  SystemStatus({this.satellite = '---', this.connected = false});
+  final TMConnectionState state;
+  final List<String> ribbon;
+  SystemStatus({
+    this.satellite = '---',
+    this.connected = false,
+    this.state = TMConnectionState.disconnected,
+    this.ribbon = const [],
+  });
 }
 
 final systemStatusProvider = NotifierProvider<StatusNotifier, SystemStatus>(() {
@@ -49,10 +58,12 @@ class StatusNotifier extends Notifier<SystemStatus> {
             state = SystemStatus(
               satellite: data['satellite'],
               connected: data['connected'],
+              state: TMConnectionState.values[data['state'] ?? 0],
+              ribbon: List<String>.from(data['ribbon'] ?? []),
             );
          }
        } catch (e) {
-         state = SystemStatus(connected: false);
+         state = SystemStatus(connected: false, state: TMConnectionState.disconnected);
        }
     });
   }
@@ -72,14 +83,21 @@ class TMRegistryNotifier extends Notifier<Map<String, TMParameter>> {
       if (newPage != null) _subscribeToPage(newPage);
     });
 
+    ref.listen(systemStatusProvider, (prev, next) {
+      if (prev?.ribbon.toString() != next.ribbon.toString()) {
+        final page = ref.read(currentPageProvider);
+        if (page != null) _subscribeToPage(page);
+      }
+    });
+
     ref.onDispose(() => _channel?.sink.close());
     return initial;
   }
 
   void _subscribeToPage(PageLayout page) {
     final mnemonics = <String>{};
-    for (var row in page.grid) {
-      for (var cell in row) {
+    for (var col in page.columns) {
+      for (var cell in col) {
         if (cell.id.isNotEmpty && cell.content.isNotEmpty && cell.type == CellType.parameter) {
            mnemonics.add(cell.content);
         }
@@ -89,9 +107,11 @@ class TMRegistryNotifier extends Notifier<Map<String, TMParameter>> {
   }
 
   void updateSubscription(List<String> mnemonics) {
-    _currentSubscription = mnemonics;
+    final ribbon = ref.read(systemStatusProvider).ribbon;
+    final combined = {...mnemonics, ...ribbon}.toList();
+    _currentSubscription = combined;
     if (_channel != null) {
-      _channel!.sink.add(jsonEncode({"type": "subscribe", "mnemonics": mnemonics}));
+      _channel!.sink.add(jsonEncode({"type": "subscribe", "mnemonics": combined}));
     }
   }
 

@@ -19,6 +19,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/expr-lang/expr"
 )
 
 //go:embed dist/*
@@ -116,6 +118,27 @@ func main() {
 	// API: Persistence Layer (CRUD for Derived Parameters)
 	mux.HandleFunc("/api/derived", func(w http.ResponseWriter, r *http.Request) {
 		handleDerivedAPI(w, r, evalEngine)
+	})
+
+	// API: Verify Expr Math Syntax securely on server
+	mux.HandleFunc("/api/derived/verify", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			http.Error(w, "method not allowed", 405)
+			return
+		}
+		var req map[string]string
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "invalid payload", 400)
+			return
+		}
+		_, err := expr.Compile(req["expression"], expr.Env(make(map[string]interface{})))
+		w.Header().Set("Content-Type", "application/json")
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]bool{"valid": true})
 	})
 
 	// API: Status Information

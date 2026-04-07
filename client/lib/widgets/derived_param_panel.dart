@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 import '../models/derived_parameter.dart';
 import '../providers/derived_state.dart';
@@ -196,11 +198,11 @@ class _EditorForm extends StatefulWidget {
   @override
   State<_EditorForm> createState() => _EditorFormState();
 }
-
 class _EditorFormState extends State<_EditorForm> {
   late TextEditingController _nameCtrl;
   late TextEditingController _unitCtrl;
   late TextEditingController _exprCtrl;
+  bool _isVerifying = false;
 
   @override
   void initState() {
@@ -216,6 +218,54 @@ class _EditorFormState extends State<_EditorForm> {
     _unitCtrl.dispose();
     _exprCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _verifyAndSave(BuildContext context) async {
+    final exp = _exprCtrl.text.trim();
+    if (exp.isEmpty) return;
+
+    setState(() => _isVerifying = true);
+
+    try {
+      final String host = Uri.base.host.isEmpty ? "localhost" : Uri.base.host;
+      final int port = Uri.base.port == 0 ? 8888 : Uri.base.port;
+      final usedPort = identical(0, 0.0) ? 8888 : port; // kDebugMode loose equiv
+      final url = Uri.parse('http://$host:$usedPort/api/derived/verify');
+
+      final res = await http.post(url, body: jsonEncode({'expression': exp}));
+      if (res.statusCode != 200) {
+        final errJson = jsonDecode(res.body);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Syntax Error: ${errJson['error']}'),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        setState(() => _isVerifying = false);
+        return; // Halt saving
+      }
+
+      // Safe to save
+      final dp = DerivedParameter(
+        id: widget.param.id.isEmpty ? const Uuid().v4() : widget.param.id,
+        mnemonic: _nameCtrl.text.trim().toUpperCase(),
+        unit: _unitCtrl.text.trim(),
+        expression: exp,
+      );
+      widget.onSave(dp);
+
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Verification failed: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
+    }
+
+    if (mounted) setState(() => _isVerifying = false);
   }
 
   @override
@@ -250,7 +300,7 @@ class _EditorFormState extends State<_EditorForm> {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: widget.onCancel,
+                  onPressed: _isVerifying ? null : widget.onCancel,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: isDark ? Colors.white70 : Colors.black87,
                     side: BorderSide(color: isDark ? Colors.white24 : Colors.black26),
@@ -263,22 +313,16 @@ class _EditorFormState extends State<_EditorForm> {
               const SizedBox(width: 16),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () {
-                    final dp = DerivedParameter(
-                      id: widget.param.id.isEmpty ? const Uuid().v4() : widget.param.id,
-                      mnemonic: _nameCtrl.text.trim().toUpperCase(),
-                      unit: _unitCtrl.text.trim(),
-                      expression: _exprCtrl.text.trim(),
-                    );
-                    widget.onSave(dp);
-                  },
+                  onPressed: _isVerifying ? null : () => _verifyAndSave(context),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primary,
                     foregroundColor: Colors.white,
                     minimumSize: const Size(0, 48),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  child: const Text('SAVE FORMULA'),
+                  child: _isVerifying 
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Text('VERIFY & SAVE'),
                 ),
               ),
             ],

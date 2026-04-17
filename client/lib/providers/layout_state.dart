@@ -11,6 +11,7 @@ final editModeProvider = NotifierProvider<EditModeNotifier, bool>(() {
   return EditModeNotifier();
 });
 
+
 // THEME TRACKER
 final themeProvider = NotifierProvider<ThemeModeNotifier, ThemeMode>(() {
   return ThemeModeNotifier();

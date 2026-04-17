@@ -4,6 +4,8 @@ import '../models/page_layout.dart';
 import '../models/tm_parameter.dart';
 import '../providers/tm_state.dart';
 import '../providers/layout_state.dart';
+import '../providers/derived_state.dart';
+import 'sparkline.dart';
 import 'parameter_picker.dart';
 
 class TMCell extends ConsumerWidget {
@@ -84,8 +86,13 @@ class TMCell extends ConsumerWidget {
             ),
           );
         }
+        
+        final derivedList = ref.watch(derivedParamProvider).value ?? [];
+        final isDerived = derivedList.any((d) => d.mnemonic == param.mnemonic);
+
         return _ParameterCell(
           param: param,
+          isDerived: isDerived,
           isDark: isDark,
           isEditMode: isEditMode,
           onTap: () => _showConfigDialog(context, ref),
@@ -232,6 +239,7 @@ class _ParameterCell extends StatelessWidget {
   final TMParameter param;
   final bool isDark;
   final bool isEditMode;
+  final bool isDerived;
   final VoidCallback onTap;
   final Color primary;
 
@@ -239,6 +247,7 @@ class _ParameterCell extends StatelessWidget {
     required this.param,
     required this.isDark,
     required this.isEditMode,
+    required this.isDerived,
     required this.onTap,
     required this.primary,
   });
@@ -293,10 +302,13 @@ class _ParameterCell extends StatelessWidget {
                     ],
                   ),
                 ),
-                Icon(
-                  Icons.show_chart_rounded,
-                  size: 12,
-                  color: isDark ? Colors.white24 : Colors.black.withAlpha(51),
+                Tooltip(
+                  message: isDerived ? 'Computed Parameters' : 'Native Satellite Telemetry',
+                  child: Icon(
+                    isDerived ? Icons.functions_rounded : Icons.satellite_alt_rounded,
+                    size: 13,
+                    color: isDark ? Colors.white24 : Colors.black.withAlpha(51),
+                  ),
                 ),
               ],
             ),
@@ -308,9 +320,25 @@ class _ParameterCell extends StatelessWidget {
               padding: const EdgeInsets.all(8),
               child: Row(
                 children: [
-                  _ValueBox(label: 'TM1', value: param.tm1Value, status: param.status1, isDark: isDark),
+                  _ValueBox(
+                    label: 'TM1',
+                    value: param.tm1Value,
+                    status: param.status1,
+                    isDark: isDark,
+                    history: param.tm1History,
+                    min: param.lowerLimit != 0 ? param.lowerLimit : null,
+                    max: param.upperLimit != 0 ? param.upperLimit : null,
+                  ),
                   const SizedBox(width: 6),
-                  _ValueBox(label: 'TM2', value: param.tm2Value, status: param.status2, isDark: isDark),
+                  _ValueBox(
+                    label: 'TM2',
+                    value: param.tm2Value,
+                    status: param.status2,
+                    isDark: isDark,
+                    history: param.tm2History,
+                    min: param.lowerLimit != 0 ? param.lowerLimit : null,
+                    max: param.upperLimit != 0 ? param.upperLimit : null,
+                  ),
                 ],
               ),
             ),
@@ -325,17 +353,24 @@ class _ParameterCell extends StatelessWidget {
 // VALUE BOX
 // ─────────────────────────────────────────────────────────────────────────────
 
+
 class _ValueBox extends StatelessWidget {
   final String label;
   final String value;
   final TMStatus status;
   final bool isDark;
+  final List<double> history;
+  final double? min;
+  final double? max;
 
   const _ValueBox({
     required this.label,
     required this.value,
     required this.status,
     required this.isDark,
+    required this.history,
+    this.min,
+    this.max,
   });
 
   static const _statusColors = {
@@ -353,6 +388,7 @@ class _ValueBox extends StatelessWidget {
 
     return Expanded(
       child: Container(
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: isDark
               ? color.withAlpha(18)
@@ -363,48 +399,73 @@ class _ValueBox extends StatelessWidget {
             width: 1,
           ),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Stack(
           children: [
-            // STATUS DOT + LABEL
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 5,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: color,
-                    shape: BoxShape.circle,
-                    boxShadow: status != TMStatus.normal
-                        ? [BoxShadow(color: color.withAlpha(140), blurRadius: 5, spreadRadius: 1)]
-                        : null,
-                  ),
+            // TREND LINE (Background)
+            Positioned(
+              left: 0, right: 0, bottom: 0, top: 32,
+              child: Opacity(
+                opacity: 0.6,
+                child: Sparkline(
+                  data: history,
+                  color: color,
+                  min: min,
+                  max: max,
                 ),
-                const SizedBox(width: 4),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.2,
-                    color: isDark ? Colors.white38 : Colors.black38,
-                  ),
-                ),
-              ],
+              ),
             ),
-            const SizedBox(height: 3),
-            // VALUE
-            Text(
-              displayVal,
-              style: TextStyle(
-                fontSize: 17,
-                fontFamily: 'monospace',
-                fontWeight: FontWeight.w900,
-                color: displayVal == '---'
-                    ? (isDark ? Colors.white24 : Colors.black26)
-                    : (isDark ? Colors.white : const Color(0xFF0F172A)),
-                letterSpacing: -0.5,
+            
+            // CONTENT
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // STATUS DOT + LABEL
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 5,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                          boxShadow: status != TMStatus.normal
+                              ? [BoxShadow(color: color.withAlpha(140), blurRadius: 5, spreadRadius: 1)]
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 8,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.2,
+                          color: isDark ? Colors.white38 : Colors.black38,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  // VALUE
+                  Text(
+                    displayVal,
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.w900,
+                      color: displayVal == '---'
+                          ? (isDark ? Colors.white24 : Colors.black26)
+                          : (isDark ? Colors.white : const Color(0xFF0F172A)),
+                      letterSpacing: -0.5,
+                      shadows: [
+                         if (isDark)
+                           Shadow(color: Colors.black.withAlpha(150), blurRadius: 8),
+                      ]
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

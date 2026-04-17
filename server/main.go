@@ -63,6 +63,9 @@ func main() {
 	if dps, err := storage.GetAllDerivedParameters(); err == nil {
 		evalEngine.Reload(dps)
 	}
+	if dgs, err := storage.GetAllDiagrams(); err == nil {
+		evalEngine.ReloadDiagrams(dgs)
+	}
 
 	// Relay updates to the hub for filtering
 	go func() {
@@ -120,6 +123,11 @@ func main() {
 		handleDerivedAPI(w, r, evalEngine)
 	})
 
+	// API: Persistence Layer (CRUD for Diagrams)
+	mux.HandleFunc("/api/diagrams", func(w http.ResponseWriter, r *http.Request) {
+		handleDiagramsAPI(w, r, evalEngine)
+	})
+
 	// API: Verify Expr Math Syntax securely on server
 	mux.HandleFunc("/api/derived/verify", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
@@ -131,7 +139,8 @@ func main() {
 			http.Error(w, "invalid payload", 400)
 			return
 		}
-		_, err := expr.Compile(req["expression"], expr.Env(make(map[string]interface{})))
+		safeExp := engine.PreprocessExpression(req["expression"])
+		_, err := expr.Compile(safeExp, expr.Env(engine.GetCompileEnv()))
 		w.Header().Set("Content-Type", "application/json")
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
@@ -318,6 +327,53 @@ func handleDerivedAPI(w http.ResponseWriter, r *http.Request, eng *engine.Engine
 			eng.Reload(dps)
 		}
 
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		http.Error(w, "method not allowed", 405)
+	}
+}
+
+func handleDiagramsAPI(w http.ResponseWriter, r *http.Request, eng *engine.Engine) {
+	w.Header().Set("Content-Type", "application/json")
+	switch r.Method {
+	case "GET":
+		dgs, err := storage.GetAllDiagrams()
+		if err != nil {
+			http.Error(w, "failed to fetch diagrams", 500)
+			return
+		}
+		json.NewEncoder(w).Encode(dgs)
+	case "POST":
+		var d storage.Diagram
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "failed to read body", 400)
+			return
+		}
+		if err := json.Unmarshal(body, &d); err != nil {
+			http.Error(w, "invalid payload", 400)
+			return
+		}
+		if err := storage.SaveDiagram(d); err != nil {
+			http.Error(w, "failed to save diagram", 500)
+			return
+		}
+		
+		if dgs, err := storage.GetAllDiagrams(); err == nil {
+			eng.ReloadDiagrams(dgs)
+		}
+		
+		w.WriteHeader(http.StatusCreated)
+	case "DELETE":
+		id := r.URL.Query().Get("id")
+		if id == "" {
+			http.Error(w, "missing id", 400)
+			return
+		}
+		if err := storage.DeleteDiagram(id); err != nil {
+			http.Error(w, "failed to delete diagram", 500)
+			return
+		}
 		w.WriteHeader(http.StatusNoContent)
 	default:
 		http.Error(w, "method not allowed", 405)

@@ -16,6 +16,8 @@ class TMParameter {
   final double upperLimit;
   final double lowerLimit;
   final double tolerance;
+  final List<double> tm1History;
+  final List<double> tm2History;
 
   TMParameter({
     required this.mnemonic,
@@ -25,6 +27,8 @@ class TMParameter {
     this.upperLimit = 0.0,
     this.lowerLimit = 0.0,
     this.tolerance = 0.0,
+    this.tm1History = const [],
+    this.tm2History = const [],
   });
 
   // Calculate status based on current values and limits
@@ -71,12 +75,16 @@ class TMParameter {
       upperLimit: (json['upper_limit'] as num?)?.toDouble() ?? 0.0,
       lowerLimit: (json['lower_limit'] as num?)?.toDouble() ?? 0.0,
       tolerance: (json['tolerance'] as num?)?.toDouble() ?? 0.0,
+      tm1History: const [], // History is managed locally in the provider
+      tm2History: const [], 
     );
   }
 
   TMParameter copyWith({
     String? tm1Value,
     String? tm2Value,
+    List<double>? tm1History,
+    List<double>? tm2History,
   }) {
     return TMParameter(
       mnemonic: mnemonic,
@@ -86,6 +94,8 @@ class TMParameter {
       upperLimit: upperLimit,
       lowerLimit: lowerLimit,
       tolerance: tolerance,
+      tm1History: tm1History ?? this.tm1History,
+      tm2History: tm2History ?? this.tm2History,
     );
   }
 }

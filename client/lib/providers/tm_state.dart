@@ -143,7 +143,34 @@ class TMRegistryNotifier extends Notifier<Map<String, TMParameter>> {
       _channel!.stream.listen((message) {
         final updatedParam = TMParameter.fromJson(json.decode(message));
         final newState = Map<String, TMParameter>.from(state);
-        newState[updatedParam.mnemonic] = updatedParam;
+        
+        final existing = state[updatedParam.mnemonic];
+        if (existing != null) {
+          // Preserve and update history
+          final h1 = List<double>.from(existing.tm1History);
+          final h2 = List<double>.from(existing.tm2History);
+          
+          final val1 = double.tryParse(updatedParam.tm1Value);
+          final val2 = double.tryParse(updatedParam.tm2Value);
+          
+          if (val1 != null) {
+            h1.add(val1);
+            if (h1.length > 100) h1.removeAt(0);
+          }
+          if (val2 != null) {
+            h2.add(val2);
+            if (h2.length > 100) h2.removeAt(0);
+          }
+          
+          newState[updatedParam.mnemonic] = updatedParam.copyWith(
+            tm1History: h1,
+            tm2History: h2,
+          );
+        } else {
+          state = {...state, updatedParam.mnemonic: updatedParam};
+          return;
+        }
+        
         state = newState;
       }, onError: (err) => Future.delayed(const Duration(seconds: 3), _connectWebSocket));
     } catch (_) {}

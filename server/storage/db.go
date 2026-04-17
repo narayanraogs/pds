@@ -24,6 +24,12 @@ type DerivedParameter struct {
 	Expression string `json:"expression"`
 }
 
+type Diagram struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	DataJson  string `json:"data_json"` // JSON encoded blocks, ports, and connections
+}
+
 var DB *sql.DB
 
 func InitializeDB(dbPath string) error {
@@ -64,6 +70,17 @@ func InitializeDB(dbPath string) error {
 	);`
 
 	if _, err := DB.Exec(queryDerived); err != nil {
+		return err
+	}
+
+	queryDiagrams := `
+	CREATE TABLE IF NOT EXISTS diagrams (
+		id TEXT PRIMARY KEY,
+		name TEXT,
+		data_json TEXT
+	);`
+
+	if _, err := DB.Exec(queryDiagrams); err != nil {
 		return err
 	}
 
@@ -132,5 +149,37 @@ func SaveDerivedParameter(dp DerivedParameter) error {
 
 func DeleteDerivedParameter(id string) error {
 	_, err := DB.Exec("DELETE FROM derived_parameters WHERE id = ?", id)
+	return err
+}
+
+func GetAllDiagrams() ([]Diagram, error) {
+	rows, err := DB.Query("SELECT id, name, data_json FROM diagrams")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var dgs []Diagram
+	for rows.Next() {
+		var d Diagram
+		if err := rows.Scan(&d.ID, &d.Name, &d.DataJson); err != nil {
+			continue
+		}
+		dgs = append(dgs, d)
+	}
+	return dgs, nil
+}
+
+func SaveDiagram(d Diagram) error {
+	query := `INSERT INTO diagrams (id, name, data_json) 
+	          VALUES (?, ?, ?) 
+	          ON CONFLICT(id) DO UPDATE SET name=excluded.name, data_json=excluded.data_json`
+
+	_, err := DB.Exec(query, d.ID, d.Name, d.DataJson)
+	return err
+}
+
+func DeleteDiagram(id string) error {
+	_, err := DB.Exec("DELETE FROM diagrams WHERE id = ?", id)
 	return err
 }

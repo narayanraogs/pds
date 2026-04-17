@@ -7,6 +7,7 @@ import '../widgets/sidebar.dart';
 import '../models/page_layout.dart';
 import '../widgets/derived_param_panel.dart';
 
+
 class MainScreen extends ConsumerWidget {
   const MainScreen({super.key});
 
@@ -29,7 +30,7 @@ class MainScreen extends ConsumerWidget {
               children: [
                 _TopBar(status: status, isEditMode: isEditMode, ref: ref, isDark: isDark),
                 _RibbonArea(isDark: isDark),
-                Expanded(child: _GridArea(isEditMode: isEditMode)),
+                Expanded(child: _MainContentArea(isEditMode: isEditMode)),
               ],
             ),
           ),
@@ -528,6 +529,20 @@ class _ValueStream extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONTENT AREA SWITCHER
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MainContentArea extends ConsumerWidget {
+  final bool isEditMode;
+  const _MainContentArea({required this.isEditMode});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return _GridArea(isEditMode: isEditMode);
   }
 }
 

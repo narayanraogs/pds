@@ -13,9 +13,7 @@ class DerivedParamNotifier extends AsyncNotifier<List<DerivedParameter>> {
   String get _baseUrl {
     final String host = Uri.base.host.isEmpty ? "localhost" : Uri.base.host;
     final int port = Uri.base.port == 0 ? 8888 : Uri.base.port;
-    final usedPort = kDebugMode ? 8888 : port;
-    final usedHost = kDebugMode ? "localhost" : host;
-    return 'http://$usedHost:$usedPort/api/derived';
+    return 'http://$host:$port/api/derived';
   }
 
   @override

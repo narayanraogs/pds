@@ -4,7 +4,7 @@
 	"DBPath": "~/pds/pds.db",
 	"MnemonicCachePath": "~/pds/mnemonics.json",
 	"RibbonMnemonics": [
-		"Frame_ID",
+		"FRAME_ID",
 		"EXE_CMD_CNTR_SEL_LSB",
 		"SYS_SEL"
 	],

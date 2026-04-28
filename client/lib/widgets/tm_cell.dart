@@ -326,8 +326,6 @@ class _ParameterCell extends StatelessWidget {
                     status: param.status1,
                     isDark: isDark,
                     history: param.tm1History,
-                    min: param.lowerLimit != 0 ? param.lowerLimit : null,
-                    max: param.upperLimit != 0 ? param.upperLimit : null,
                   ),
                   const SizedBox(width: 6),
                   _ValueBox(
@@ -336,8 +334,6 @@ class _ParameterCell extends StatelessWidget {
                     status: param.status2,
                     isDark: isDark,
                     history: param.tm2History,
-                    min: param.lowerLimit != 0 ? param.lowerLimit : null,
-                    max: param.upperLimit != 0 ? param.upperLimit : null,
                   ),
                 ],
               ),
@@ -403,14 +399,12 @@ class _ValueBox extends StatelessWidget {
           children: [
             // TREND LINE (Background)
             Positioned(
-              left: 0, right: 0, bottom: 0, top: 32,
+              left: 0, right: 0, bottom: 0, top: 0,
               child: Opacity(
-                opacity: 0.6,
+                opacity: 0.4,
                 child: Sparkline(
                   data: history,
                   color: color,
-                  min: min,
-                  max: max,
                 ),
               ),
             ),

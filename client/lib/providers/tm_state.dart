@@ -49,10 +49,8 @@ class StatusNotifier extends Notifier<SystemStatus> {
        try {
          final String host = Uri.base.host.isEmpty ? "localhost" : Uri.base.host;
          final int port = Uri.base.port == 0 ? 8888 : Uri.base.port;
-         final usedPort = kDebugMode ? 8888 : port;
-         final usedHost = kDebugMode ? "localhost" : host;
          
-         final response = await http.get(Uri.parse('http://$usedHost:$usedPort/api/status'));
+         final response = await http.get(Uri.parse('http://$host:$port/api/status'));
          if (response.statusCode == 200) {
             final data = json.decode(response.body);
             state = SystemStatus(
@@ -72,12 +70,18 @@ class StatusNotifier extends Notifier<SystemStatus> {
 class TMRegistryNotifier extends Notifier<Map<String, TMParameter>> {
   WebSocketChannel? _channel;
   List<String> _currentSubscription = [];
+  
+  // OPTION A: Batching Buffer (List to ensure no samples are lost)
+  final List<Map<String, dynamic>> _updateBuffer = [];
+  Timer? _batchTimer;
 
   @override
   Map<String, TMParameter> build() {
-    final Map<String, TMParameter> initial = {};
     _fetchMnemonics();
     _connectWebSocket();
+
+    // Start the batch flush timer (Matches Satellite 256ms frame rate)
+    _batchTimer = Timer.periodic(const Duration(milliseconds: 256), (_) => _flushUpdates());
 
     ref.listen(currentPageProvider, (oldPage, newPage) {
       if (newPage != null) _subscribeToPage(newPage);
@@ -90,8 +94,11 @@ class TMRegistryNotifier extends Notifier<Map<String, TMParameter>> {
       }
     });
 
-    ref.onDispose(() => _channel?.sink.close());
-    return initial;
+    ref.onDispose(() {
+      _channel?.sink.close();
+      _batchTimer?.cancel();
+    });
+    return {};
   }
 
   void _subscribeToPage(PageLayout page) {
@@ -115,11 +122,20 @@ class TMRegistryNotifier extends Notifier<Map<String, TMParameter>> {
     }
   }
 
+  String get _host {
+     // If the browser is at 192.168.1.10:8888, Uri.base.host will be 192.168.1.10
+     final String browserHost = Uri.base.host;
+     return browserHost.isEmpty ? "localhost" : browserHost;
+  }
+
+  int get _port {
+     final int browserPort = Uri.base.port;
+     return browserPort == 0 ? 8888 : browserPort;
+  }
+
   Future<void> _fetchMnemonics() async {
     try {
-      final host = kDebugMode ? 'localhost' : Uri.base.host;
-      final port = kDebugMode ? 8888 : Uri.base.port;
-      final url = 'http://${host.isEmpty ? "localhost" : host}:$port/mnemonics';
+      final url = 'http://$_host:$_port/mnemonics';
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
@@ -135,23 +151,67 @@ class TMRegistryNotifier extends Notifier<Map<String, TMParameter>> {
 
   void _connectWebSocket() {
     try {
-      final host = kDebugMode ? 'localhost' : Uri.base.host;
-      final port = kDebugMode ? 8888 : Uri.base.port;
-      final wsUrl = 'ws://${host.isEmpty ? "localhost" : host}:$port/ws';
+      final wsUrl = 'ws://$_host:$_port/ws';
+      debugPrint('Connecting TM WS to: $wsUrl');
       _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
       _triggerInitialSubscription();
       _channel!.stream.listen((message) {
-        final updatedParam = TMParameter.fromJson(json.decode(message));
-        final newState = Map<String, TMParameter>.from(state);
+        final raw = message.toString();
+        final boundary = RegExp(r'\}\s*\{');
         
-        final existing = state[updatedParam.mnemonic];
+        if (raw.contains(boundary)) {
+          final parts = raw.split(boundary);
+          for (var p in parts) {
+            String s = p.trim();
+            if (s.isEmpty) continue;
+            if (!s.startsWith('{')) s = '{' + s;
+            if (!s.endsWith('}')) s = s + '}';
+            _decodeAndBuffer(s);
+          }
+        } else {
+          _decodeAndBuffer(raw);
+        }
+      }, 
+      onError: (err) {
+        debugPrint('TM WS Error: $err');
+        Future.delayed(const Duration(seconds: 3), _connectWebSocket);
+      },
+      onDone: () {
+        debugPrint('TM WS Closed');
+        Future.delayed(const Duration(seconds: 3), _connectWebSocket);
+      });
+    } catch (_) {}
+  }
+
+  void _decodeAndBuffer(String jsonStr) {
+    try {
+      final Map<String, dynamic> data = json.decode(jsonStr);
+      if (data.containsKey('mnemonic')) {
+        _updateBuffer.add(data);
+      }
+    } catch (_) {}
+  }
+
+  void _flushUpdates() {
+    if (_updateBuffer.isEmpty) return;
+    try {
+      final newState = Map<String, TMParameter>.from(state);
+      final updates = List<Map<String, dynamic>>.from(_updateBuffer);
+      _updateBuffer.clear();
+
+      for (final data in updates) {
+        final String mnemonic = data['mnemonic'] ?? '';
+        if (mnemonic.isEmpty) continue;
+
+        final existing = newState[mnemonic];
         if (existing != null) {
-          // Preserve and update history
           final h1 = List<double>.from(existing.tm1History);
           final h2 = List<double>.from(existing.tm2History);
           
-          final val1 = double.tryParse(updatedParam.tm1Value);
-          final val2 = double.tryParse(updatedParam.tm2Value);
+          final val1Str = data['tm1_value']?.toString() ?? '';
+          final val2Str = data['tm2_value']?.toString() ?? '';
+          final val1 = double.tryParse(val1Str);
+          final val2 = double.tryParse(val2Str);
           
           if (val1 != null) {
             h1.add(val1);
@@ -162,18 +222,21 @@ class TMRegistryNotifier extends Notifier<Map<String, TMParameter>> {
             if (h2.length > 100) h2.removeAt(0);
           }
           
-          newState[updatedParam.mnemonic] = updatedParam.copyWith(
+          newState[mnemonic] = existing.copyWith(
+            tm1Value: val1Str.isNotEmpty ? val1Str : existing.tm1Value,
+            tm2Value: val2Str.isNotEmpty ? val2Str : existing.tm2Value,
             tm1History: h1,
             tm2History: h2,
           );
         } else {
-          state = {...state, updatedParam.mnemonic: updatedParam};
-          return;
+          newState[mnemonic] = TMParameter.fromJson(data);
         }
-        
-        state = newState;
-      }, onError: (err) => Future.delayed(const Duration(seconds: 3), _connectWebSocket));
-    } catch (_) {}
+      }
+      
+      state = newState;
+    } catch (e) {
+      debugPrint('Flush Error: $e');
+    }
   }
 
   void _triggerInitialSubscription() {
@@ -184,9 +247,10 @@ class TMRegistryNotifier extends Notifier<Map<String, TMParameter>> {
   }
 }
 
-// Optimized providers
+// Optimized providers using selective rebuilding
 final parameterProvider = Provider.family<TMParameter?, String>((ref, id) {
-  return ref.watch(tmRegistryProvider)[id];
+  // Option B: Only notify listeners if the specific entry for this ID changes
+  return ref.watch(tmRegistryProvider.select((map) => map[id]));
 });
 
 String _normalize(String s) => s.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');

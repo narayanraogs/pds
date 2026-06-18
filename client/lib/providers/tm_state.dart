@@ -210,8 +210,15 @@ class TMRegistryNotifier extends Notifier<Map<String, TMParameter>> {
           
           final val1Str = data['tm1_value']?.toString() ?? '';
           final val2Str = data['tm2_value']?.toString() ?? '';
-          final val1 = double.tryParse(val1Str);
-          final val2 = double.tryParse(val2Str);
+          final count1Str = data['tm1_count']?.toString() ?? '';
+          final count2Str = data['tm2_count']?.toString() ?? '';
+
+          double? val1 = double.tryParse(val1Str);
+          double? val2 = double.tryParse(val2Str);
+          
+          // Fallback to plotting the count if the value isn't numeric (e.g. "ON", "OFF", hex strings)
+          if (val1 == null && count1Str.isNotEmpty) val1 = double.tryParse(count1Str);
+          if (val2 == null && count2Str.isNotEmpty) val2 = double.tryParse(count2Str);
           
           if (val1 != null) {
             h1.add(val1);
@@ -225,6 +232,8 @@ class TMRegistryNotifier extends Notifier<Map<String, TMParameter>> {
           newState[mnemonic] = existing.copyWith(
             tm1Value: val1Str.isNotEmpty ? val1Str : existing.tm1Value,
             tm2Value: val2Str.isNotEmpty ? val2Str : existing.tm2Value,
+            tm1Count: count1Str.isNotEmpty ? count1Str : existing.tm1Count,
+            tm2Count: count2Str.isNotEmpty ? count2Str : existing.tm2Count,
             tm1History: h1,
             tm2History: h2,
           );

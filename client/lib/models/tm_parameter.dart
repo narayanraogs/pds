@@ -13,6 +13,8 @@ class TMParameter {
   final String units;
   final String tm1Value;
   final String tm2Value;
+  final String tm1Count;
+  final String tm2Count;
   final double upperLimit;
   final double lowerLimit;
   final double tolerance;
@@ -24,6 +26,8 @@ class TMParameter {
     this.units = '',
     this.tm1Value = '',
     this.tm2Value = '',
+    this.tm1Count = '',
+    this.tm2Count = '',
     this.upperLimit = 0.0,
     this.lowerLimit = 0.0,
     this.tolerance = 0.0,
@@ -72,6 +76,8 @@ class TMParameter {
       units: json['units'] ?? '',
       tm1Value: json['tm1_value'] ?? '',
       tm2Value: json['tm2_value'] ?? '',
+      tm1Count: json['tm1_count'] ?? '',
+      tm2Count: json['tm2_count'] ?? '',
       upperLimit: (json['upper_limit'] as num?)?.toDouble() ?? 0.0,
       lowerLimit: (json['lower_limit'] as num?)?.toDouble() ?? 0.0,
       tolerance: (json['tolerance'] as num?)?.toDouble() ?? 0.0,
@@ -83,6 +89,8 @@ class TMParameter {
   TMParameter copyWith({
     String? tm1Value,
     String? tm2Value,
+    String? tm1Count,
+    String? tm2Count,
     List<double>? tm1History,
     List<double>? tm2History,
   }) {
@@ -91,6 +99,8 @@ class TMParameter {
       units: units,
       tm1Value: tm1Value ?? this.tm1Value,
       tm2Value: tm2Value ?? this.tm2Value,
+      tm1Count: tm1Count ?? this.tm1Count,
+      tm2Count: tm2Count ?? this.tm2Count,
       upperLimit: upperLimit,
       lowerLimit: lowerLimit,
       tolerance: tolerance,

@@ -443,20 +443,26 @@ class _ValueBox extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   // VALUE
-                  Text(
-                    displayVal,
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontFamily: 'monospace',
-                      fontWeight: FontWeight.w900,
-                      color: displayVal == '---'
-                          ? (isDark ? Colors.white24 : Colors.black26)
-                          : (isDark ? Colors.white : const Color(0xFF0F172A)),
-                      letterSpacing: -0.5,
-                      shadows: [
-                         if (isDark)
-                           Shadow(color: Colors.black.withAlpha(150), blurRadius: 8),
-                      ]
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        displayVal,
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontFamily: 'monospace',
+                          fontWeight: FontWeight.w900,
+                          color: displayVal == '---'
+                              ? (isDark ? Colors.white24 : Colors.black26)
+                              : (isDark ? Colors.white : const Color(0xFF0F172A)),
+                          letterSpacing: -0.5,
+                          shadows: [
+                             if (isDark)
+                               Shadow(color: Colors.black.withAlpha(150), blurRadius: 8),
+                          ]
+                        ),
+                      ),
                     ),
                   ),
                 ],

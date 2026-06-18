@@ -54,6 +54,8 @@ type ParameterValue struct {
 	Units      string  `json:"units"`
 	TM1Value   string  `json:"tm1_value"`
 	TM2Value   string  `json:"tm2_value"`
+	TM1Count   string  `json:"tm1_count"`
+	TM2Count   string  `json:"tm2_count"`
 	UpperLimit float64 `json:"upper_limit"`
 	LowerLimit float64 `json:"lower_limit"`
 	Tolerance  float64 `json:"tolerance"`

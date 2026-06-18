@@ -99,6 +99,8 @@ func FetchFullParamsFromServer(cfg *config.Config) (map[string]parameter, error)
 				Units:      p.Units,
 				TM1Value:   "",
 				TM2Value:   "",
+				TM1Count:   "",
+				TM2Count:   "",
 				UpperLimit: p.UpperLimit,
 				LowerLimit: p.LowerLimit,
 				Tolerance:  p.Tolerance,
@@ -214,7 +216,7 @@ func GetAllParameterInfo() map[string]ParameterValue {
 	return result
 }
 
-func UpdateParamValue(pid string, tm1Val string, tm2Val string, isTM1 bool) (*ParameterValue, bool) {
+func UpdateParamValue(pid string, tm1Val string, tm2Val string, count string, isTM1 bool) (*ParameterValue, bool) {
 	paramMu.RLock()
 	sp, ok := paramValueMap[pid]
 	paramMu.RUnlock()
@@ -228,8 +230,10 @@ func UpdateParamValue(pid string, tm1Val string, tm2Val string, isTM1 bool) (*Pa
 
 	if isTM1 {
 		sp.val.TM1Value = tm1Val
+		sp.val.TM1Count = count
 	} else {
 		sp.val.TM2Value = tm2Val
+		sp.val.TM2Count = count
 	}
 
 	copied := sp.val

@@ -8,6 +8,7 @@ import 'package:fuzzy/fuzzy.dart';
 import '../models/tm_parameter.dart';
 import '../models/page_layout.dart';
 import 'layout_state.dart';
+import 'critical_state.dart';
 
 // RE-WRITING TM state file to include Status Monitoring
 final tmRegistryProvider = NotifierProvider<TMRegistryNotifier, Map<String, TMParameter>>(() {
@@ -80,8 +81,8 @@ class TMRegistryNotifier extends Notifier<Map<String, TMParameter>> {
     _fetchMnemonics();
     _connectWebSocket();
 
-    // Start the batch flush timer (Matches Satellite 256ms frame rate)
-    _batchTimer = Timer.periodic(const Duration(milliseconds: 256), (_) => _flushUpdates());
+    // Start the batch flush timer (250ms frame rate)
+    _batchTimer = Timer.periodic(const Duration(milliseconds: 250), (_) => _flushUpdates());
 
     ref.listen(currentPageProvider, (oldPage, newPage) {
       if (newPage != null) _subscribeToPage(newPage);
@@ -92,6 +93,11 @@ class TMRegistryNotifier extends Notifier<Map<String, TMParameter>> {
         final page = ref.read(currentPageProvider);
         if (page != null) _subscribeToPage(page);
       }
+    });
+
+    ref.listen(criticalParamsProvider, (_, _) {
+      final page = ref.read(currentPageProvider);
+      if (page != null) _subscribeToPage(page);
     });
 
     ref.onDispose(() {
@@ -115,7 +121,8 @@ class TMRegistryNotifier extends Notifier<Map<String, TMParameter>> {
 
   void updateSubscription(List<String> mnemonics) {
     final ribbon = ref.read(systemStatusProvider).ribbon;
-    final combined = {...mnemonics, ...ribbon}.toList();
+    final criticals = (ref.read(criticalParamsProvider).value ?? []).where((c) => c.isActive).map((c) => c.mnemonic).toList();
+    final combined = {...mnemonics, ...ribbon, ...criticals}.toList();
     _currentSubscription = combined;
     if (_channel != null) {
       _channel!.sink.add(jsonEncode({"type": "subscribe", "mnemonics": combined}));
@@ -154,7 +161,11 @@ class TMRegistryNotifier extends Notifier<Map<String, TMParameter>> {
       final wsUrl = 'ws://$_host:$_port/ws';
       debugPrint('Connecting TM WS to: $wsUrl');
       _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
-      _triggerInitialSubscription();
+      if (_currentSubscription.isNotEmpty) {
+        _channel!.sink.add(jsonEncode({"type": "subscribe", "mnemonics": _currentSubscription}));
+      } else {
+        _triggerInitialSubscription();
+      }
       _channel!.stream.listen((message) {
         final raw = message.toString();
         final boundary = RegExp(r'\}\s*\{');
@@ -164,8 +175,8 @@ class TMRegistryNotifier extends Notifier<Map<String, TMParameter>> {
           for (var p in parts) {
             String s = p.trim();
             if (s.isEmpty) continue;
-            if (!s.startsWith('{')) s = '{' + s;
-            if (!s.endsWith('}')) s = s + '}';
+            if (!s.startsWith('{')) s = '{$s';
+            if (!s.endsWith('}')) s = '$s}';
             _decodeAndBuffer(s);
           }
         } else {

@@ -155,6 +155,18 @@ final currentPageProvider = Provider<PageLayout?>((ref) {
       return pages.first;
     },
     loading: () => null,
-    error: (_, __) => null,
+    error: (_, _) => null,
   );
 });
+
+enum ActiveView { gridDisplays, criticalParameters }
+
+final activeViewProvider = NotifierProvider<ActiveViewNotifier, ActiveView>(() {
+  return ActiveViewNotifier();
+});
+
+class ActiveViewNotifier extends Notifier<ActiveView> {
+  @override
+  ActiveView build() => ActiveView.gridDisplays;
+  set value(ActiveView v) => state = v;
+}

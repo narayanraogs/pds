@@ -5,8 +5,13 @@ import '../providers/tm_state.dart';
 
 class ParameterPicker extends ConsumerStatefulWidget {
   final Function(CellType, String) onSelect;
+  final bool allowHeader;
 
-  const ParameterPicker({super.key, required this.onSelect});
+  const ParameterPicker({
+    super.key,
+    required this.onSelect,
+    this.allowHeader = true,
+  });
 
   @override
   ConsumerState<ParameterPicker> createState() => _ParameterPickerState();
@@ -14,7 +19,7 @@ class ParameterPicker extends ConsumerStatefulWidget {
 
 class _ParameterPickerState extends ConsumerState<ParameterPicker> with SingleTickerProviderStateMixin {
   String _searchQuery = '';
-  String _selectedSubsystem = 'ALL';
+  final String _selectedSubsystem = 'ALL';
   final TextEditingController _headerController = TextEditingController();
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
@@ -66,37 +71,39 @@ class _ParameterPickerState extends ConsumerState<ParameterPicker> with SingleTi
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // -- SET HEADER ----------------------------------------
-                      _SectionLabel(text: 'Set as Header Cell', isDark: isDark),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _StyledTextField(
-                              controller: _headerController,
-                              hintText: 'Enter header label (e.g. Power Subsystem)',
-                              surfaceBg: surfaceBg,
-                              borderColor: borderColor,
-                              isDark: isDark,
-                              primary: primary,
+                      if (widget.allowHeader) ...[
+                        // -- SET HEADER ----------------------------------------
+                        _SectionLabel(text: 'Set as Header Cell', isDark: isDark),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _StyledTextField(
+                                controller: _headerController,
+                                hintText: 'Enter header label (e.g. Power Subsystem)',
+                                surfaceBg: surfaceBg,
+                                borderColor: borderColor,
+                                isDark: isDark,
+                                primary: primary,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 10),
-                          _PrimaryBtn(
-                            label: 'Set Header',
-                            icon: Icons.title_rounded,
-                            color: primary,
-                            onPressed: () {
-                              widget.onSelect(CellType.header, _headerController.text);
-                              Navigator.pop(context);
-                            },
-                          ),
-                        ],
-                      ),
+                            const SizedBox(width: 10),
+                            _PrimaryBtn(
+                              label: 'Set Header',
+                              icon: Icons.title_rounded,
+                              color: primary,
+                              onPressed: () {
+                                widget.onSelect(CellType.header, _headerController.text);
+                                Navigator.pop(context);
+                              },
+                            ),
+                          ],
+                        ),
 
-                      const SizedBox(height: 20),
-                      _SectionDivider(isDark: isDark),
-                      const SizedBox(height: 20),
+                        const SizedBox(height: 20),
+                        _SectionDivider(isDark: isDark),
+                        const SizedBox(height: 20),
+                      ],
 
                       // -- ASSIGN PARAMETER -----------------------------------
                       Row(
@@ -145,7 +152,7 @@ class _ParameterPickerState extends ConsumerState<ParameterPicker> with SingleTi
                               : ListView.separated(
                                   padding: const EdgeInsets.symmetric(vertical: 6),
                                   itemCount: filteredParams.length,
-                                  separatorBuilder: (_, __) => Divider(
+                                  separatorBuilder: (_, _) => Divider(
                                     height: 1,
                                     color: borderColor,
                                     indent: 16,

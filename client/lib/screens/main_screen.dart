@@ -6,6 +6,7 @@ import '../widgets/tm_cell.dart';
 import '../widgets/sidebar.dart';
 import '../models/page_layout.dart';
 import '../widgets/derived_param_panel.dart';
+import 'critical_params_screen.dart';
 
 
 class MainScreen extends ConsumerWidget {
@@ -377,7 +378,7 @@ class _PulsingDotState extends State<_PulsingDot> with SingleTickerProviderState
     }
     return AnimatedBuilder(
       animation: _animation,
-      builder: (_, __) => Container(
+      builder: (_, _) => Container(
         width: 7,
         height: 7,
         decoration: BoxDecoration(
@@ -542,7 +543,13 @@ class _MainContentArea extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return _GridArea(isEditMode: isEditMode);
+    final activeView = ref.watch(activeViewProvider);
+    switch (activeView) {
+      case ActiveView.gridDisplays:
+        return _GridArea(isEditMode: isEditMode);
+      case ActiveView.criticalParameters:
+        return const CriticalParamsScreen();
+    }
   }
 }
 

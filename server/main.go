@@ -17,6 +17,7 @@ import (
 	"pds/tm"
 	"runtime/debug"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -67,19 +68,46 @@ func main() {
 		evalEngine.ReloadDiagrams(dgs)
 	}
 
-	// Relay updates to the hub for filtering
+	// Relay updates to the hub for filtering at 250 ms intervals
 	go func() {
-		for p := range updatedParamChan {
-			if data, err := json.Marshal(p); err == nil {
-				rawBroadcast <- data
-			}
+		ticker := time.NewTicker(250 * time.Millisecond)
+		defer ticker.Stop()
 
-			// Pipeline trigger for Phase 3/4
-			if derivedParams, err := evalEngine.Evaluate(p); err == nil {
-				for _, dp := range derivedParams {
-					if data, err := json.Marshal(dp); err == nil {
-						rawBroadcast <- data
+		var mu sync.Mutex
+		pendingUpdates := make(map[string]tm.ParameterValue)
+
+		// Drain incoming telemetry into pendingUpdates batch map
+		go func() {
+			for p := range updatedParamChan {
+				mu.Lock()
+				pendingUpdates[p.Mnemonic] = p
+				mu.Unlock()
+
+				// Evaluate derived parameters and include in batch
+				if derivedParams, err := evalEngine.Evaluate(p); err == nil {
+					for _, dp := range derivedParams {
+						mu.Lock()
+						pendingUpdates[dp.Mnemonic] = dp
+						mu.Unlock()
 					}
+				}
+			}
+		}()
+
+		// Ticker loop: Every 250ms, flush accumulated delta updates
+		for range ticker.C {
+			mu.Lock()
+			if len(pendingUpdates) == 0 {
+				mu.Unlock()
+				continue
+			}
+			currentBatch := pendingUpdates
+			pendingUpdates = make(map[string]tm.ParameterValue)
+			mu.Unlock()
+
+			for _, p := range currentBatch {
+				if data, err := json.Marshal(p); err == nil {
+					rawBroadcast <- data
 				}
 			}
 		}
@@ -127,6 +155,9 @@ func main() {
 	mux.HandleFunc("/api/diagrams", func(w http.ResponseWriter, r *http.Request) {
 		handleDiagramsAPI(w, r, evalEngine)
 	})
+
+	// API: Persistence Layer (CRUD for Critical Parameters)
+	mux.HandleFunc("/api/critical", handleCriticalAPI)
 
 	// API: Verify Expr Math Syntax securely on server
 	mux.HandleFunc("/api/derived/verify", func(w http.ResponseWriter, r *http.Request) {
@@ -372,6 +403,48 @@ func handleDiagramsAPI(w http.ResponseWriter, r *http.Request, eng *engine.Engin
 		}
 		if err := storage.DeleteDiagram(id); err != nil {
 			http.Error(w, "failed to delete diagram", 500)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		http.Error(w, "method not allowed", 405)
+	}
+}
+
+func handleCriticalAPI(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	switch r.Method {
+	case "GET":
+		cps, err := storage.GetAllCriticalParameters()
+		if err != nil {
+			http.Error(w, "failed to fetch critical parameters", 500)
+			return
+		}
+		json.NewEncoder(w).Encode(cps)
+	case "POST":
+		var cp storage.CriticalParameter
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "failed to read body", 400)
+			return
+		}
+		if err := json.Unmarshal(body, &cp); err != nil {
+			http.Error(w, "invalid payload", 400)
+			return
+		}
+		if err := storage.SaveCriticalParameter(cp); err != nil {
+			http.Error(w, "failed to save critical parameter", 500)
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+	case "DELETE":
+		id := r.URL.Query().Get("id")
+		if id == "" {
+			http.Error(w, "missing id", 400)
+			return
+		}
+		if err := storage.DeleteCriticalParameter(id); err != nil {
+			http.Error(w, "failed to delete critical parameter", 500)
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)

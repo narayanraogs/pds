@@ -87,8 +87,9 @@ class TMCell extends ConsumerWidget {
           );
         }
         
-        final derivedList = ref.watch(derivedParamProvider).value ?? [];
-        final isDerived = derivedList.any((d) => d.mnemonic == param.mnemonic);
+        final isDerived = ref.watch(derivedParamProvider.select(
+          (asyncVal) => (asyncVal.value ?? []).any((d) => d.mnemonic == param.mnemonic),
+        ));
 
         return _ParameterCell(
           param: param,
@@ -356,8 +357,6 @@ class _ValueBox extends StatelessWidget {
   final TMStatus status;
   final bool isDark;
   final List<double> history;
-  final double? min;
-  final double? max;
 
   const _ValueBox({
     required this.label,
@@ -365,8 +364,6 @@ class _ValueBox extends StatelessWidget {
     required this.status,
     required this.isDark,
     required this.history,
-    this.min,
-    this.max,
   });
 
   static const _statusColors = {

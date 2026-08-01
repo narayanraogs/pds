@@ -122,7 +122,7 @@ class _SparklinePainter extends CustomPainter {
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [color.withOpacity(0.3), color.withOpacity(0.0)],
+          colors: [color.withValues(alpha: 0.3), color.withValues(alpha: 0.0)],
         ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
       canvas.drawPath(fillPath, fillPaint);
@@ -131,7 +131,7 @@ class _SparklinePainter extends CustomPainter {
       // Draw Highlight Dot
       final dotPaint = Paint()..color = color;
       final glowPaint = Paint()
-        ..color = color.withOpacity(0.3)
+        ..color = color.withValues(alpha: 0.3)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
       
       canvas.drawCircle(lastPoint, 4.5, glowPaint);

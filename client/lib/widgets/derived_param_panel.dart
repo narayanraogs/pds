@@ -11,7 +11,7 @@ void showDerivedParamPanel(BuildContext context, WidgetRef ref) {
     context: context,
     barrierDismissible: true,
     barrierLabel: 'Dismiss',
-    barrierColor: Colors.black.withOpacity(0.5),
+    barrierColor: Colors.black.withValues(alpha: 0.5),
     transitionDuration: const Duration(milliseconds: 300),
     pageBuilder: (context, anim1, anim2) {
       return const Align(
@@ -54,7 +54,7 @@ class _DerivedParamPanelState extends ConsumerState<DerivedParamPanel> {
         border: Border(left: BorderSide(color: border, width: 1)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 15,
             spreadRadius: 2,
           ),

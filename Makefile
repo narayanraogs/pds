@@ -9,7 +9,7 @@ all: build
 # 1. Build the production Flutter Web app
 client:
 	@echo "[CLIENT] Building Flutter Web (Offline CanvasKit)..."
-	@cd client && flutter build web --no-web-resources-cdn --base-href / 
+	@cd client && flutter build web --no-tree-shake-icons --no-web-resources-cdn --base-href /
 	@echo "[CLIENT] Build complete."
 
 # 2. Extract and stage web assets for the Go server

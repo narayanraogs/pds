@@ -20,10 +20,10 @@ class Sidebar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final pagesAsync = ref.watch(pagesProvider);
     final currentIndex = ref.watch(currentPageIndexProvider);
+    final activeView = ref.watch(activeViewProvider);
     final searchQuery = ref.watch(pageSearchQueryProvider).toLowerCase();
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primary = Theme.of(context).primaryColor;
-
 
     final bg = isDark ? const Color(0xFF0D1321) : Colors.white;
     final borderColor = isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
@@ -43,6 +43,33 @@ class Sidebar extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
             child: _SearchField(isDark: isDark, primary: primary),
           ),
+
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+            child: Text(
+              'SPECIAL VIEWS',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 2,
+                color: isDark ? Colors.white38 : Colors.black38,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: _PageTile(
+              name: 'Critical Parameters',
+              icon: Icons.warning_amber_rounded,
+              isSelected: activeView == ActiveView.criticalParameters,
+              isDark: isDark,
+              primary: Colors.redAccent,
+              onTap: () {
+                ref.read(activeViewProvider.notifier).value = ActiveView.criticalParameters;
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
 
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
@@ -68,10 +95,11 @@ class Sidebar extends ConsumerWidget {
                     final realIndex = allPages.indexWhere((p) => p.id == page.id);
                     return _PageTile(
                       name: page.name,
-                      isSelected: realIndex == currentIndex,
+                      isSelected: activeView == ActiveView.gridDisplays && realIndex == currentIndex,
                       isDark: isDark,
                       primary: primary,
                       onTap: () {
+                        ref.read(activeViewProvider.notifier).value = ActiveView.gridDisplays;
                         ref.read(currentPageIndexProvider.notifier).value = realIndex;
                       },
                       onDelete: allPages.length > 1 ? () => _showDeleteConfirm(context, ref, page.id, page.name) : null,
@@ -181,6 +209,7 @@ class _SearchField extends ConsumerWidget {
 
 class _PageTile extends StatefulWidget {
   final String name;
+  final IconData? icon;
   final bool isSelected;
   final bool isDark;
   final Color primary;
@@ -189,6 +218,7 @@ class _PageTile extends StatefulWidget {
 
   const _PageTile({
     required this.name,
+    this.icon,
     required this.isSelected,
     required this.isDark,
     required this.primary,
@@ -221,7 +251,7 @@ class _PageTileState extends State<_PageTile> {
           ),
           child: Row(
             children: [
-              Icon(Icons.grid_view_outlined, size: 15, color: textColor),
+              Icon(widget.icon ?? Icons.grid_view_outlined, size: 15, color: textColor),
               const SizedBox(width: 10),
               Expanded(child: Text(widget.name, style: TextStyle(fontSize: 12.5, fontWeight: widget.isSelected ? FontWeight.w700 : FontWeight.w500, color: textColor))),
               if (widget.onDelete != null && _hovered)
